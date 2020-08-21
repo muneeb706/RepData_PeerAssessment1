@@ -8,18 +8,179 @@ output:
 
 ## Loading and preprocessing the data
 
+Loading Data from zip file.
+
+```{r, echo=TRUE}
+activity_data <- read.table(unz("./activity.zip", "activity.csv"), header=T, sep=",", colClasses = c("integer","Date", "integer"))
+head(activity_data)
+```
 
 
 ## What is mean total number of steps taken per day?
 
+Caclculating Total number of steps taken per day.
 
+```{r, echo=TRUE}
+steps_per_day <- tapply(activity_data$steps, activity_data$date, sum)
+steps_per_day
+```
+
+Removing Days having steps 'Not Available'.
+
+```{r, echo=TRUE}
+steps_per_day <- steps_per_day[!is.na(steps_per_day)]
+steps_per_day
+```
+
+Converting to DataFrame.
+
+```{r, echo=TRUE}
+steps_per_day_df <- data.frame(Day=names(steps_per_day), Steps=steps_per_day, row.names=NULL)
+head(steps_per_day_df)
+```
+
+Plotting Histogram.
+
+```{r, echo=TRUE}
+library(ggplot2)
+ggplot(steps_per_day_df, aes(x = Steps, y = Day)) +
+       geom_histogram(stat = 'identity') + coord_flip() + theme(axis.text.x = element_text(angle = 90))
+```
+Mean of the total nuumber of steps taken per day.
+
+```{r, echo=TRUE}
+mean(steps_per_day)
+```
+
+Median of the total number of steps taken per day.
+
+```{r, echo=TRUE}
+median(steps_per_day)
+```
 
 ## What is the average daily activity pattern?
 
+Calculating Average across all days for each interval.
+
+```{r, echo=TRUE}
+avg_per_interval <- tapply(activity_data$steps, activity_data$interval, mean, na.rm=TRUE)
+avg_per_interval
+```
+
+
+Converting to DataFrame.
+
+```{r, echo=TRUE}
+avg_per_interval_df <- data.frame(Interval=as.numeric(names(avg_per_interval)), Steps=avg_per_interval, row.names=NULL)
+head(avg_per_interval_df)
+```
+
+Time Series Plot.
+
+```{r, echo=TRUE}
+ggplot(avg_per_interval_df, aes(x=Interval, y=Steps, group=1)) + geom_line() + scale_x_continuous(breaks=seq(-200,2400, 200))
+```
+
+Interval With maximum number of steps.
+
+```{r, echo=TRUE}
+avg_per_interval_df[which.max(avg_per_interval_df$Steps),]
+```
 
 
 ## Imputing missing values
 
+Total number of missing values in the dataset.
 
+```{r, echo=TRUE}
+nrow(activity_data[is.na(activity_data$steps), ])
+```
+
+Creating new dataset by filling missing values in original dataset.
+Missing Values will be filled by mean of steps with respect to interval (calculated above).
+
+```{r, echo=TRUE}
+
+activity_data_filled = activity_data
+
+na_indices <- which(is.na(activity_data$steps))
+
+for (index in na_indices) {
+    
+    curr_interval <- activity_data[index,]$interval
+        
+    avg_steps <- avg_per_interval_df[avg_per_interval_df$Interval == curr_interval,]$Steps
+
+    activity_data_filled[index,]$steps <- avg_steps
+}
+
+head(activity_data_filled)
+```
+
+Caclculating Total number of steps taken per day after filling missing values.
+
+```{r, echo=TRUE}
+steps_per_day_filled <- tapply(activity_data_filled$steps, activity_data_filled$date, sum)
+steps_per_day_filled
+```
+
+Converting to DataFrame.
+
+```{r, echo=TRUE}
+steps_per_day_filled_df <- data.frame(Day=names(steps_per_day_filled), Steps=steps_per_day_filled, row.names=NULL)
+head(steps_per_day_filled_df)
+```
+
+Plotting Histogram.
+
+```{r, echo=TRUE}
+library(ggplot2)
+ggplot(steps_per_day_filled_df, aes(x = Steps, y = Day)) +
+       geom_histogram(stat = 'identity') + coord_flip() + theme(axis.text.x = element_text(angle = 90))
+```
+
+Mean of the total nuumber of steps taken per day.
+
+```{r, echo=TRUE}
+mean(steps_per_day_filled)
+```
+
+Median of the total number of steps taken per day.
+
+```{r, echo=TRUE}
+median(steps_per_day_filled)
+```
+
+After imputing missing values mean and median values of the Total Steps per day became equal.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Creating a new variable to indicate whether given day is weekend or weekday
+
+```{r, echo=TRUE}
+library(chron)
+
+daytype <- is.weekend(activity_data_filled$date)
+activity_data_filled$daytype <- factor(ifelse(daytype, "weekend", "weekday"))
+head(activity_data_filled)
+
+```
+
+Calculating Average across all weekdays and weekends for each interval.
+
+```{r, echo=TRUE}
+library(reshape)
+
+avg_per_interval_daytype <- tapply(activity_data_filled$steps, list(activity_data_filled$interval, activity_data_filled$daytype), mean)
+avg_per_interval_daytype_df <- as.data.frame(avg_per_interval_daytype)
+avg_per_interval_daytype_df$interval <- row.names(avg_per_interval_daytype_df)
+avg_per_interval_daytype_df <- melt.data.frame(avg_per_interval_daytype_df)
+colnames(avg_per_interval_daytype_df) <- c("interval", "daytype", "steps")
+head(avg_per_interval_daytype_df)
+```
+
+Plotting Time Series graph with respect to day type.
+
+```{r, echo=TRUE}
+ggplot(avg_per_interval_daytype_df, aes(x=as.numeric(interval), y=steps, group=1)) + geom_line() + facet_grid(. ~ daytype, scales="free") + xlab("interval")
+```
