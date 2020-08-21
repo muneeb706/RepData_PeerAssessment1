@@ -124,6 +124,7 @@ ggplot(steps_per_day_df, aes(x = Steps, y = Day)) +
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
 Mean of the total nuumber of steps taken per day.
 
 
